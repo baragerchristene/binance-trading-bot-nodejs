@@ -20,13 +20,8 @@
   "author": "Oguzhan Kurum",
   "license": "ISC",
   "dependencies": {
-    "@mathieuc/tradingview": "^3.3.3",
-    "binance-api-node": "^0.12.4",
-    "express": "^4.18.2",
     "http": "0.0.1-security",
     "node-binance-api": "^0.13.1",
-    "nodemon": "^2.0.22",
-    "technicalindicators": "^3.1.0",
-    "tulind": "^0.8.20"
+    "nodemon": "^2.0.22"
   }
 }

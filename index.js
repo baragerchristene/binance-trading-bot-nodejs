@@ -1,12 +1,13 @@
 const http = require('http');
 const Binance = require('node-binance-api');
 const binance = new Binance().options({
-    APIKEY: 'WjHagHrMfwaIS62XzUAAMfKuPMt0QBszPU5Qm8t7be6Ku0EbpWlO8xzmJRc28HHR',
-    APISECRET: 'nJOf6JAjWj599XpLKBeN0EvcTTX3RfTIYglHUTQ8Xbhs0zRD4PDjvOo0JkuXHGIL',
+    APIKEY: 'YOUR_KEY', // change this to your API key
+    APISECRET: 'YOUR_SECRET', // change this to your API secret
     useServerTime: true, // If you get timestamp errors, synchronize with server time at startup
     test: false // If you want to use the testnet, set this to true
 });
 
+const interval = 5 * 60 * 1000; // 5 minutes
 const symbol = 'BTCUSDT';
 
 function runBot() {
@@ -68,9 +69,9 @@ function runBot() {
     });
 }
 
-// Run the bot every 5 minutes
+// Run the bot every ** minutes
 runBot();
-setInterval(runBot, 5 * 60 * 1000);
+setInterval(runBot, interval);
 
 const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
