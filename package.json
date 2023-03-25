@@ -1,0 +1,32 @@
+{
+  "name": "binance-piyasa-botu",
+  "version": "1.0.0",
+  "description": "Binance Piyasa Botu",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "start:backend": "nodemon index.js",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "binance-piyasa-botu"
+  },
+  "keywords": [
+    "binance",
+    "piyasa",
+    "botu"
+  ],
+  "author": "Oguzhan Kurum",
+  "license": "ISC",
+  "dependencies": {
+    "@mathieuc/tradingview": "^3.3.3",
+    "binance-api-node": "^0.12.4",
+    "express": "^4.18.2",
+    "http": "0.0.1-security",
+    "node-binance-api": "^0.13.1",
+    "nodemon": "^2.0.22",
+    "technicalindicators": "^3.1.0",
+    "tulind": "^0.8.20"
+  }
+}
