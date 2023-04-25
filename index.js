@@ -1,85 +1,112 @@
-const http = require('http');
-const Binance = require('node-binance-api');
-const binance = new Binance().options({
-    APIKEY: 'YOUR_KEY', // change this with your API key
-    APISECRET: 'YOUR_SECRET', // change this with your API secret
-    useServerTime: true, // If you get timestamp errors, synchronize with server time at startup
-    test: false // If you want to use the testnet, set this to true
+const request = require('request');
+const tulind = require('tulind');
+const Binance = require('binance-api-node').default;
+const client = Binance({
+  APIKEY: 'oBm8XWYqBXWOzef5sNk0JxyRC6QcLyE9ys9nwcfmBJ0jQGyOBN08ZXd8g9QFQMQM', // change this with your API key
+  APISECRET: 'hPjQJFz4eEDKfJpB0mJ17uFjKOqS4DWmw9RJ78mTwSNpGD2A2iHh3ZdUiaiJIhD3', // change this with your API secret
+  // useServerTime: true, // If you get timestamp errors, synchronize with server time at startup
+  // test: false // If you want to use the testnet, set this to true
 });
 
-const interval = 5 * 60 * 1000; // 5 minutes
-const symbol = 'BTCUSDT';
+const symbol = 'BTCUSDT'; // Binance'da kullanılan sembol
+const interval = '1h'; // 1 saatlik zaman aralığı
+const tradeAmount = 10; // Her işlemde kullanılacak miktar
+const leverage = 100;
+var balance = 1000;
 
-function runBot() {
-    // Get price data
-    binance.candlesticks(symbol, '5m', (error, ticks, symbol) => {
-        if (error) {
-            console.error(error);
-            return;
-        }
+let lastRSI;
 
-        // Calculate moving averages
-        const period1 = 20;
-        const period2 = 50;
-        const ma1 = ticks.slice(-period1).reduce((sum, tick) => sum + parseFloat(tick[4]), 0) / period1;
-        const ma2 = ticks.slice(-period2).reduce((sum, tick) => sum + parseFloat(tick[4]), 0) / period2;
+const apiUrl = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}`;
 
-        // Check for WT Cross signal
-        if (ma1 > ma2) {
-            // Buy signal
-            const quantity = 0.001; // Buy 0.001 BTC
-            const currentDateTime = new Date().toLocaleString();
-            console.log('\x1b[42m', `Buy signal detected. Placing buy order for ${quantity} of ${symbol} at ${currentDateTime}`,);
-            binance.marketBuy(symbol, quantity, (error, response) => {
-                if (error) {
-                    console.error(error);
-                    return;
-                }
-                console.log(`Bought ${quantity} of ${symbol}`);
-                // Place stop-loss and take-profit orders
-                const stopPrice = ma1 * 0.95;
-                const takePrice = ma1 * 1.05;
-                binance.sell(symbol, quantity, takePrice, { stopPrice: stopPrice }, (error, response) => {
-                    if (error) {
-                        console.error(error);
-                        return;
-                    }
-                    console.log(`Placed stop-loss at ${stopPrice} and take-profit at ${takePrice}`);
-                });
-            });
-        } else if (ma1 < ma2) {
-            // Sell signal
-            const currentDateTime = new Date().toLocaleString();
-            console.log('\x1b[41m', `Sell signal detected. Placing sell order for all of ${symbol} at ${currentDateTime}`);
-            binance.balance((error, balances) => {
-                if (error) {
-                    console.error(error);
-                    return;
-                }
-                const quantity = balances.BTC.available;
-                binance.marketSell(symbol, quantity, (error, response) => {
-                    if (error) {
-                        console.error(error);
-                        return;
-                    }
-                    console.log(`Sold ${quantity} of ${symbol}`);
-                });
-            });
-        }
+var transactionsList = [];
+
+function getRSI(callback) {
+  request(apiUrl, function (error, response, body) {
+    if (error) throw new Error(error);
+
+    const data = JSON.parse(body);
+    const closePrices = data.map(d => parseFloat(d[4]));
+
+    tulind.indicators.rsi.indicator([closePrices], [14], (err, results) => {
+      if (err) throw new Error(err);
+
+      const rsi = results[0][results[0].length - 1];
+      lastRSI = rsi;
+      callback(rsi);
     });
+  });
 }
 
-// Run the bot every ** minutes
-runBot();
-setInterval(runBot, interval);
+function getCurrentPrice() {
+  return client.futuresPrices().then((prices) => {
+    const currentPrice = parseFloat(prices['BTCUSDT']);
+    console.log('Mevcut fiyat:', currentPrice);
+    return currentPrice;
+  });
+}
 
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.write('Merhaba Dünya!');
-    res.end();
+function buy({ rsi }) {
+  const currentDateTime = new Date().toLocaleString();
+  console.log('\x1b[32m', 'Alim sinyali geldi, aliniyor...', currentDateTime);
+  const sellModel = {
+    balance: balance - tradeAmount,
+    leverage,
+    name: symbol,
+    rsi: parseFloat(rsi).toFixed(2),
+    tradeAmount,
+    time: currentDateTime,
+    type: 'sale',
+  };
+  transactionsList.push(sellModel);
+  // console.log({ transactionsList })
+  // // buy
+  // client.futuresMarketBuy(symbol, { quantity: tradeAmount, leverage })
+  //   .then(order => {
+  //     console.log(order);
+  //     balance = parseFloat(order.origQty);
+  //   })
+  //   .catch(error => console.error(error));
+}
 
-});
+function sell({ rsi }) {
+  const currentDateTime = new Date().toLocaleString();
+  console.log('\x1b[31m', 'Satis sinyali geldi, satiliyor...', currentDateTime);
+  const buyModel = {
+    balance: balance + tradeAmount,
+    leverage,
+    name: symbol,
+    rsi: parseFloat(rsi).toFixed(2),
+    tradeAmount,
+    time: currentDateTime,
+    type: 'buy'
+  };
+  transactionsList.push(buyModel);
+  // console.log({ transactionsList })
 
-server.listen(3000, () => {
-    console.log('App is running on port 3000');
-});
+  // sell
+  // client.futuresMarketSell(symbol, { quantity: tradeAmount, leverage })
+  //   .then(order => {
+  //     console.log(order);
+  //     balance = parseFloat(order.origQty);
+  //   })
+  //   .catch(error => console.error(error));
+}
+
+function checkSignal() {
+  // mantık;
+  // RSI'ın 30'un altına düşmesi alım sinyali,
+  // 70'in üzerine çıkması ise satım sinyalidir.
+  const currentDateTime = new Date().toLocaleString();
+  getRSI(rsi => {
+    if (lastRSI < 52) {
+      return buy({ rsi });
+    } else if (lastRSI >= 70) {
+      return sell({ rsi });
+    }
+    return console.log('\x1b[33m', 'Durum: Takipte,', `Tarih: ${currentDateTime},`, `RSI: ${parseFloat(rsi).toFixed(2)}`, `Bakiye: ${balance}`);
+  });
+}
+
+// setInterval(checkSignal, 1000 * 60 * 60); // Her saatte bir sinyal kontrolü yap
+setInterval(checkSignal, 1000 * 60); // Her dakikada bir sinyal kontrolü yap
+checkSignal();
